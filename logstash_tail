@@ -6,8 +6,11 @@ import sys
 from pyparsing import *
 import json
 import os
-import parser
+import patterns
 import json
+import logging
+import logstash
+import time
 
 parse = argparse.ArgumentParser(description='Convert log file to json.')
 parse.add_argument('--format', dest='format', action='store',default=None, help='Format e.g. Ansible')
@@ -17,51 +20,100 @@ args = parse.parse_args()
 
 format = args.format
 
-### Read parser from parser.py
-
-lst = []
-for n in dir(parser.Parser):
-    sym = getattr(parser.Parser, n)
-    if isinstance(sym,ParserElement):
-        lst.append(sym)
-
-for c in lst:
-    print c
-
-xos_logger = Or(lst)
-
-inp = ''
-
-while True:
-    l = sys.stdin.readline()
-    if (l==""):
-        break
-
-    inp += l
+def send_log(log):
+    host = 'elastic'
+    logger = logging.getLogger('python-logstash-logger')
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logstash.LogstashHandler(host, 5617, version=1))
 
     try:
-        s = xos_logger.scanString(inp)
+       msg = log['desc']
+    except KeyError:
+       msg = 'Metadata'
 
-        last = None
-        for i in s:
-            try:
-                payload = i[0][0]
-                if (type(payload)==dict):
-                    try:
-                        print json.dumps(payload)
-                    except:
-                        print payload
-            except IndexError:
-                print "IndexError"
-                pass
-
-            last = i
+    time.sleep(0.1)
+    logger.info(msg, extra=log)
 
 
-        if (last):
-            inp = inp[last[2]:]
-    except Exception,e:
-        # We don't want logging to hold up execution
-        print str(e)
-        #pass
+### Read parser from patterns.py
 
+def run_logger():
+    lst = []
+    for n in dir(patterns.Parser):
+        sym = getattr(patterns.Parser, n)
+        if isinstance(sym,ParserElement):
+            lst.append(sym)
+
+    default = SkipTo(LineEnd(),include=True)
+
+    xos_logger = Or(lst)
+
+    inp = ''
+    lc = 0
+
+    def report(payload,g):
+        if (type(payload)!=dict):
+            payload = {'desc':payload}
+
+        if (g):
+            payload['global_tag'] = g
+
+        print payload
+        send_log(payload)
+
+    while True:
+        l = sys.stdin.readline()
+
+        if (l==""):
+            break
+
+        g = None
+        try:
+            global_tag = "==>" + Word(alphanums) + ":" + SkipTo(LineEnd(),include=True)
+            s = global_tag.parseString(l)
+            l = s[3]+'\n'
+            g = s[1]
+        except:
+            pass
+
+        inp += l
+        lc += 1
+
+        if (lc>4):
+            top = inp.splitlines()[0]
+            line_idx = inp.index('\n')
+            inp=inp[line_idx+1:]
+
+            report(top,g)
+
+            lc-=1
+
+        try:
+            s = xos_logger.scanString(inp)
+
+            last = None
+            for i in s:
+                try:
+                    payload = i[0][0]
+                    report(payload,g)
+                except IndexError:
+                    print "IndexError"
+                    pass
+
+                last = i
+
+            if (last):
+                inp = inp[last[2]:]
+                lines = inp.splitlines()
+                lc=len(lines)
+            
+        except Exception,e:
+            # We don't want logging to hold up execution
+            print str(e)
+
+def main():
+    run_logger()
+    
+        
+if __name__ == "__main__":
+    main()
