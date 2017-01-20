@@ -1,0 +1,67 @@
+#!/usr/bin/python
+
+import pdb
+import argparse
+import sys
+from pyparsing import *
+import json
+import os
+import parser
+import json
+
+parse = argparse.ArgumentParser(description='Convert log file to json.')
+parse.add_argument('--format', dest='format', action='store',default=None, help='Format e.g. Ansible')
+parse.add_argument('--hostport', dest='hostport', action='store',default=None, help='Logstash UDP host:port')
+
+args = parse.parse_args()
+
+format = args.format
+
+### Read parser from parser.py
+
+lst = []
+for n in dir(parser.Parser):
+    sym = getattr(parser.Parser, n)
+    if isinstance(sym,ParserElement):
+        lst.append(sym)
+
+for c in lst:
+    print c
+
+xos_logger = Or(lst)
+
+inp = ''
+
+while True:
+    l = sys.stdin.readline()
+    if (l==""):
+        break
+
+    inp += l
+
+    try:
+        s = xos_logger.scanString(inp)
+
+        last = None
+        for i in s:
+            try:
+                payload = i[0][0]
+                if (type(payload)==dict):
+                    try:
+                        print json.dumps(payload)
+                    except:
+                        print payload
+            except IndexError:
+                print "IndexError"
+                pass
+
+            last = i
+
+
+        if (last):
+            inp = inp[last[2]:]
+    except Exception,e:
+        # We don't want logging to hold up execution
+        print str(e)
+        #pass
+
