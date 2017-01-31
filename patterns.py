@@ -14,3 +14,6 @@ class Parser:
     gradle_start = "Downloading https://services.gradle.org" + SkipTo(LineEnd())
     gradle_start.setParseAction(lambda x:{"gradle":1, "global":"Gradle started"})
 
+    debian_preparing = "Preparing to unpack" + Word(printables) + SkipTo(LineEnd())
+    debian_preparing.setParseAction(lambda x:{"debian":1, "package":x[1]})
+

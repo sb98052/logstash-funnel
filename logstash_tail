@@ -9,7 +9,7 @@ import os
 import patterns
 import json
 import logging
-import logstash
+#import logstash
 import time
 
 parse = argparse.ArgumentParser(description='Convert log file to json.')
@@ -21,6 +21,8 @@ args = parse.parse_args()
 format = args.format
 
 def send_log(log):
+    print log
+    """
     host = 'elastic'
     logger = logging.getLogger('python-logstash-logger')
     logger.setLevel(logging.INFO)
@@ -33,6 +35,7 @@ def send_log(log):
 
     time.sleep(0.1)
     logger.info(msg, extra=log)
+    """
 
 
 ### Read parser from patterns.py
