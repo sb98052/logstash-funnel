@@ -9,11 +9,10 @@ import os
 import patterns
 import json
 import logging
-#import logstash
+import logstash
 import time
 
 def follow(thefile):
-    thefile.seek(0,2)
     while True:
         line = thefile.readline()
         if not line:
@@ -37,7 +36,7 @@ format = args.format
 def send_log(log):
     logger = logging.getLogger('python-logstash-logger')
     logger.setLevel(logging.INFO)
-    logger.addHandler(logstash.LogstashHandler(host, port, version=1))
+    logger.addHandler(logstash.LogstashHandler(host, int(port), version=1))
 
     try:
        msg = log['desc']
