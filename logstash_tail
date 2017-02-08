@@ -12,9 +12,21 @@ import logging
 #import logstash
 import time
 
+def follow(thefile):
+    thefile.seek(0,2)
+    while True:
+        line = thefile.readline()
+        if not line:
+            time.sleep(0.1)
+            continue
+        yield line
+
+
 parse = argparse.ArgumentParser(description='Convert log file to json.')
 parse.add_argument('--format', dest='format', action='store',default=None, help='Format e.g. Ansible')
 parse.add_argument('--hostport', dest='hostport', action='store',default=None, help='Logstash UDP host:port')
+parse.add_argument('--file', dest='filename', action='store',default=None, help='Filename to follow')
+ 
 
 args = parse.parse_args()
 
@@ -40,6 +52,34 @@ def send_log(log):
 
 ### Read parser from patterns.py
 
+def extract_global(l):
+    g = None
+
+    try:
+        global_tag = "==>" + Word(alphanums) + ":" + SkipTo(LineEnd(),include=True)
+        s = global_tag.parseString(l)
+        l = s[3]+'\n'
+        g = s[1]
+    except:
+        pass
+
+    return g,l
+
+def serialize_raw(s):
+    for l in s.splitlines():
+        g,l = extract_global(l)
+        report(l, g)
+
+def report(payload,g):
+    if (not payload):
+        return
+
+    if (type(payload)!=dict):
+        payload = {'desc':payload, 'global_tag': g}
+
+    print payload
+    send_log(payload)
+
 def run_logger():
     lst = []
     for n in dir(patterns.Parser):
@@ -54,30 +94,19 @@ def run_logger():
     inp = ''
     lc = 0
 
-    def report(payload,g):
-        if (type(payload)!=dict):
-            payload = {'desc':payload}
+    
 
-        if (g):
-            payload['global_tag'] = g
-
-        print payload
-        send_log(payload)
+    if (args.filename):
+        source = follow(open(args.filename))
 
     while True:
-        l = sys.stdin.readline()
+        if (not args.filename):
+            l = sys.stdin.readline()
+        else:
+            l = source.next()
 
         if (l==""):
             break
-
-        g = None
-        try:
-            global_tag = "==>" + Word(alphanums) + ":" + SkipTo(LineEnd(),include=True)
-            s = global_tag.parseString(l)
-            l = s[3]+'\n'
-            g = s[1]
-        except:
-            pass
 
         inp += l
         lc += 1
@@ -87,6 +116,7 @@ def run_logger():
             line_idx = inp.index('\n')
             inp=inp[line_idx+1:]
 
+            g,top = extract_global(top)
             report(top,g)
 
             lc-=1
@@ -95,9 +125,18 @@ def run_logger():
             s = xos_logger.scanString(inp)
 
             last = None
+            first = True
             for i in s:
+
+                if (first):
+                    pending = inp[:i[1]]
+                    serialize_raw(pending)
+
+                first = False
+
                 try:
                     payload = i[0][0]
+                    g,_ = extract_global(inp)
                     report(payload,g)
                 except IndexError:
                     print "IndexError"
