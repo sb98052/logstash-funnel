@@ -33,11 +33,12 @@ host,port = args.hostport.split(':')
 
 format = args.format
 
-def send_log(log):
-    logger = logging.getLogger('python-logstash-logger')
-    logger.setLevel(logging.INFO)
-    logger.addHandler(logstash.LogstashHandler(host, int(port), version=1))
+logger = logging.getLogger('python-logstash-logger')
+logger.setLevel(logging.INFO)
+logger.addHandler(logstash.LogstashHandler(host, int(port), version=1))
 
+def send_log(log):
+    
     try:
        msg = log['desc']
     except KeyError:
