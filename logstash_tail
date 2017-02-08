@@ -30,15 +30,14 @@ parse.add_argument('--file', dest='filename', action='store',default=None, help=
 
 args = parse.parse_args()
 
+host,port = args.hostport.split(':')
+
 format = args.format
 
 def send_log(log):
-    print log
-    """
-    host = 'elastic'
     logger = logging.getLogger('python-logstash-logger')
     logger.setLevel(logging.INFO)
-    logger.addHandler(logstash.LogstashHandler(host, 5617, version=1))
+    logger.addHandler(logstash.LogstashHandler(host, port, version=1))
 
     try:
        msg = log['desc']
@@ -47,8 +46,6 @@ def send_log(log):
 
     time.sleep(0.1)
     logger.info(msg, extra=log)
-    """
-
 
 ### Read parser from patterns.py
 
