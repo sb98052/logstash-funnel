@@ -8,10 +8,13 @@ class Parser:
     test_pattern2.setParseAction(lambda x:{"test":x[1]})
 
     ansible = "TASK [" + SkipTo(']',include=True) + SkipTo(LineEnd(),include=True) + oneOf('changed ok failed error unreachable') + ': ' + SkipTo(LineEnd(),include=True)
-    ansible.setParseAction(lambda x:{"task":x[1],"status":x[3],"subject": x[5],"ansible":1})
+    ansible.setParseAction(lambda x:{"task":x[1][0],"status":x[3],"subject": x[5][0],"ansible":1})
 
     ansible2 = "TASK [" + SkipTo(']',include=True) + SkipTo(LineEnd(),include=True) + SkipTo(LineEnd(),include=True) + oneOf('changed ok failed error unreachable') + ': ' + SkipTo(LineEnd(),include=True)
-    ansible2.setParseAction(lambda x:{"task":x[1],"status":x[2],"subject": x[4],"ansible":1})
+    ansible2.setParseAction(lambda x:{"task":x[1][0],"status":x[4],"subject": x[6][0],"ansible":1})
+
+    ansible3 = "TASK [" + SkipTo(']',include=True) + SkipTo(LineEnd(),include=True) + SkipTo(LineEnd(),include=True) + SkipTo(LineEnd(),include=True) + oneOf('changed ok failed error unreachable') + ': ' + SkipTo(LineEnd(),include=True)
+    ansible3.setParseAction(lambda x:{"task":x[1][0],"status":x[5],"subject": x[7][0],"ansible":1})
 
     # Vagrant
     vagrant_start = Literal("[") + SkipTo("]",include=True) + "Importing base box '" + SkipTo("'",include=True) + SkipTo(LineEnd(),include=True)
