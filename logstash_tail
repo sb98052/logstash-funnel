@@ -25,7 +25,6 @@ parse = argparse.ArgumentParser(description='Convert log file to json.')
 parse.add_argument('--format', dest='format', action='store',default=None, help='Format e.g. Ansible')
 parse.add_argument('--hostport', dest='hostport', action='store',default=None, help='Logstash UDP host:port')
 parse.add_argument('--file', dest='filename', action='store',default=None, help='Filename to follow')
- 
 
 args = parse.parse_args()
 
@@ -45,7 +44,11 @@ def send_log(log):
        msg = 'Metadata'
 
     time.sleep(0.1)
-    logger.info(msg, extra=log)
+    try:
+        logger.info(msg, extra=log)
+    except Exception,e:
+        logger.info('Logstash log failed', extra={'xos_fatal':1,'exception':str(e)})
+        pass
 
 ### Read parser from patterns.py
 
@@ -74,8 +77,8 @@ def report(payload,g):
     if (type(payload)!=dict):
         payload = {'desc':payload, 'global_tag': g}
 
-    print payload
     send_log(payload)
+    #print payload
 
 def run_logger():
     lst = []
@@ -91,8 +94,6 @@ def run_logger():
     inp = ''
     lc = 0
 
-    
-
     if (args.filename):
         source = follow(open(args.filename))
 
@@ -104,19 +105,23 @@ def run_logger():
 
         if (l==""):
             break
+        elif len(l)>200:
+            continue
 
         inp += l
-        lc += 1
+        lc = len(inp.split('\n'))
 
         if (lc>4):
             top = inp.splitlines()[0]
-            line_idx = inp.index('\n')
-            inp=inp[line_idx+1:]
+            try:
+                line_idx = inp.index('\n')
+                inp=inp[line_idx+1:]
 
-            g,top = extract_global(top)
-            report(top,g)
-
-            lc-=1
+                g,top = extract_global(top)
+                report(top,g)
+                lc = len(inp.split('\n'))
+            except ValueError:
+                pass
 
         try:
             s = xos_logger.scanString(inp)
@@ -136,7 +141,6 @@ def run_logger():
                     g,_ = extract_global(inp)
                     report(payload,g)
                 except IndexError:
-                    print "IndexError"
                     pass
 
                 last = i
@@ -148,7 +152,8 @@ def run_logger():
             
         except Exception,e:
             # We don't want logging to hold up execution
-            print str(e)
+            #print str(e)
+            pass
 
 def main():
     run_logger()
